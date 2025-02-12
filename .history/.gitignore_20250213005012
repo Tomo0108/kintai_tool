@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+build/
+dist/
+*.egg-info/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Folders
+input/*
+output/*
+!input/.gitkeep
+!output/.gitkeep
+
+# Config
+config.ini
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Virtual Environment
+venv/
+env/
