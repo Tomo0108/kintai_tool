@@ -43,11 +43,11 @@ def write_to_excel(template_path, output_path, df, csv_filename):
     wb = openpyxl.load_workbook(template_path)
     sheet = wb["勤務表"]
 
-    # G1セルにCSVファイル名から取得した従業員名を記載
+    # G6セルにCSVファイル名から取得した従業員名を記載
     import re
     name_match = re.search(r'勤怠詳細_(.+?)_\d{4}_\d{2}', os.path.basename(csv_filename))
     employee_name = name_match.group(1) if name_match else "不明"
-    sheet["G1"] = employee_name
+    sheet["G6"] = employee_name
 
     # H5セルの月を取得し、それに基づいてA列の日付を設定
     month_value = df["日付"].dt.month.iloc[0]
