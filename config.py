@@ -1,31 +1,31 @@
 import os
 import sys
-import configparser
+import shutil
 from pathlib import Path
+import configparser
 
-def get_config_path():
-    """実行ファイルと同じディレクトリのconfig.iniのパスを返す"""
-    if getattr(sys, 'frozen', False):
-        # exe実行時
-        base_path = Path(sys.executable).parent
-    else:
-        # 通常実行時
-        base_path = Path(__file__).parent
-    return base_path / 'config.ini'
+def get_mac_dirs():
+    """Mac用の各種ディレクトリパスを取得"""
+    app_name = '勤怠表自動作成ツール'
+    home = Path.home()
+    return {
+        'config': home / 'Library' / 'Application Support' / app_name,
+        'documents': home / 'Documents' / app_name,
+        'templates': home / 'Documents' / app_name / 'templates'
+    }
 
-def create_default_config():
-    """デフォルトの設定ファイルを作成する"""
-    config = configparser.ConfigParser(interpolation=None)  # 補間を無効化
+def create_default_config(config_path):
+    """デフォルトのconfig.iniを作成"""
+    config = configparser.ConfigParser(interpolation=None)
     
-    # デフォルト設定
     config['DEFAULT'] = {
-        'employee_name': '小島知将',
-        'template_path': 'templates/勤怠表雛形_2025年版.xlsx'
+        'employee_name': '',
+        'template_path': str(get_mac_dirs()['templates'] / '勤怠表雛形_2025年版.xlsx')
     }
     
     config['PATHS'] = {
-        'input_dir': 'input',
-        'output_dir': 'output'
+        'input_dir': str(get_mac_dirs()['documents'] / 'input'),
+        'output_dir': str(get_mac_dirs()['documents'] / 'output')
     }
     
     config['CSV'] = {
@@ -33,51 +33,97 @@ def create_default_config():
         'date_format': '%Y-%m-%d'
     }
     
-    # 設定ファイルを保存
-    with open(get_config_path(), 'w', encoding='utf-8') as f:
+    with open(config_path, 'w', encoding='utf-8') as f:
         config.write(f)
 
-def load_config():
-    """設定を読み込む。ない場合は作成する"""
-    config = configparser.ConfigParser(interpolation=None)  # 補間を無効化
-    config_path = get_config_path()
+def get_config_path():
+    """プラットフォームに応じたconfig.iniのパスを取得"""
+    if sys.platform == 'darwin':
+        return get_mac_dirs()['config'] / 'config.ini'
+    else:
+        if getattr(sys, 'frozen', False):
+            base_path = Path(sys.executable).parent
+        else:
+            base_path = Path(__file__).parent
+        return base_path / 'config.ini'
+
+def initialize_mac_environment():
+    """Mac用の初期環境をセットアップ"""
+    if sys.platform != 'darwin':
+        return
+
+    dirs = get_mac_dirs()
     
-    # config.iniが存在しない場合、デフォルト設定で作成
+    # 必要なディレクトリを作成
+    for dir_path in dirs.values():
+        dir_path.mkdir(parents=True, exist_ok=True)
+    
+    # input/outputディレクトリを作成
+    docs_dir = dirs['documents']
+    (docs_dir / 'input').mkdir(exist_ok=True)
+    (docs_dir / 'output').mkdir(exist_ok=True)
+    
+    # テンプレートファイルをコピー
+    if getattr(sys, 'frozen', False):
+        bundle_templates = Path(sys._MEIPASS) / 'templates'
+        if bundle_templates.exists():
+            for template in bundle_templates.glob('*.xlsx'):
+                shutil.copy2(template, dirs['templates'])
+    
+    # 初期設定ファイルの作成
+    config_path = dirs['config'] / 'config.ini'
     if not config_path.exists():
-        create_default_config()
-    
-    config.read(config_path, encoding='utf-8')
-    return config
-
-def save_config(config):
-    """設定を保存する"""
-    with open(get_config_path(), 'w', encoding='utf-8') as f:
-        config.write(f)
+        create_default_config(config_path)
 
 def get_default_employee_name():
-    return load_config()['DEFAULT']['employee_name']
+    """デフォルトの従業員名を取得"""
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(get_config_path(), encoding='utf-8')
+    return config.get('DEFAULT', 'employee_name', fallback='')
 
 def get_template_path():
-    return load_config()['DEFAULT']['template_path']
+    """テンプレートファイルのパスを取得"""
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(get_config_path(), encoding='utf-8')
+    return config.get('DEFAULT', 'template_path', fallback='')
 
 def get_input_dir():
-    return load_config()['PATHS']['input_dir']
+    """入力ディレクトリのパスを取得"""
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(get_config_path(), encoding='utf-8')
+    return config.get('PATHS', 'input_dir', fallback='input')
 
 def get_output_dir():
-    return load_config()['PATHS']['output_dir']
+    """出力ディレクトリのパスを取得"""
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(get_config_path(), encoding='utf-8')
+    return config.get('PATHS', 'output_dir', fallback='output')
 
 def get_csv_encoding():
-    return load_config()['CSV']['encoding']
+    """CSVファイルのエンコーディングを取得"""
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(get_config_path(), encoding='utf-8')
+    return config.get('CSV', 'encoding', fallback='utf-8')
 
 def get_date_format():
-    return load_config()['CSV']['date_format']
+    """日付フォーマットを取得"""
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(get_config_path(), encoding='utf-8')
+    return config.get('CSV', 'date_format', fallback='%Y-%m-%d')
 
-def update_config(name, template):
-    """config.iniに氏名とテンプレートファイルのパスを保存"""
-    config = load_config()
-    config['DEFAULT']['employee_name'] = name
-    config['DEFAULT']['template_path'] = template
-    save_config(config)
+def update_config(employee_name, template_path):
+    """設定を更新"""
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(get_config_path(), encoding='utf-8')
+    
+    if 'DEFAULT' not in config:
+        config['DEFAULT'] = {}
+    
+    config['DEFAULT']['employee_name'] = employee_name
+    config['DEFAULT']['template_path'] = template_path
+    
+    with open(get_config_path(), 'w', encoding='utf-8') as f:
+        config.write(f)
 
 def ensure_directories():
     """必要なディレクトリを作成"""
@@ -85,5 +131,10 @@ def ensure_directories():
     for dir_name in dirs:
         os.makedirs(dir_name, exist_ok=True)
 
-# プログラム起動時に実行
-ensure_directories()
+# アプリケーション起動時に実行
+initialize_mac_environment()
+
+if sys.platform == 'darwin':  # Mac OS の場合
+    from tkinter import ttk
+    style = ttk.Style()
+    style.theme_use('aqua')  # Mac スタイルを適用

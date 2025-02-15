@@ -3,6 +3,7 @@ import pandas as pd
 import openpyxl
 from openpyxl.utils import get_column_letter
 from config import get_csv_encoding, get_date_format
+from pathlib import Path
 
 def read_csv(csv_path):
     """
@@ -40,14 +41,19 @@ def write_to_excel(template_path, output_path, df, csv_filename):
     ひな型Excelに勤怠データを書き込む
     """
     import openpyxl
+    
+    # パスを正規化
+    template_path = str(Path(template_path))
+    output_path = str(Path(output_path))
+    
     wb = openpyxl.load_workbook(template_path)
     sheet = wb["勤務表"]
 
-    # G1セルにCSVファイル名から取得した従業員名を記載
+    # G6セルにCSVファイル名から取得した従業員名を記載
     import re
     name_match = re.search(r'勤怠詳細_(.+?)_\d{4}_\d{2}', os.path.basename(csv_filename))
     employee_name = name_match.group(1) if name_match else "不明"
-    sheet["G1"] = employee_name
+    sheet["G6"] = employee_name
 
     # H5セルの月を取得し、それに基づいてA列の日付を設定
     month_value = df["日付"].dt.month.iloc[0]
@@ -63,5 +69,8 @@ def write_to_excel(template_path, output_path, df, csv_filename):
         sheet[f"E{index}"] = "1:00" if row.勤怠種別 not in ["未入力", "所定休日", "法定休日"] else ""  # 休憩時間
         sheet[f"F{index}"] = row.総勤務時間  
 
+    # 出力ディレクトリが存在しない場合は作成
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    
     wb.save(output_path)
     print(f"✅ Excelファイルを保存しました: {output_path}")

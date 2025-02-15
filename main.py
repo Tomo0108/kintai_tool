@@ -1,13 +1,20 @@
 import os
+import sys
 import argparse
 import pandas as pd
 from datetime import datetime
+from pathlib import Path
 from utils import read_csv, process_data, write_to_excel
 from config import (get_default_employee_name, get_input_dir, 
-                   get_output_dir)
+                   get_output_dir, initialize_mac_environment)
 
 def process_attendance(csv_path, template_path, employee_name):
     """勤怠データの処理を行う関数"""
+    # Mac環境の場合、パスを正規化
+    if sys.platform == 'darwin':
+        csv_path = str(Path(csv_path))
+        template_path = str(Path(template_path))
+    
     # CSVデータを読み込み
     df = read_csv(csv_path)
 
