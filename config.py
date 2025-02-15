@@ -1,8 +1,10 @@
+import configparser
 import os
 import sys
 import shutil
 from pathlib import Path
-import configparser
+import logging
+from datetime import datetime
 
 def get_mac_dirs():
     """Mac用の各種ディレクトリパスを取得"""
@@ -93,11 +95,10 @@ def get_input_dir():
     config.read(get_config_path(), encoding='utf-8')
     return config.get('PATHS', 'input_dir', fallback='input')
 
-def get_output_dir():
-    """出力ディレクトリのパスを取得"""
-    config = configparser.ConfigParser(interpolation=None)
-    config.read(get_config_path(), encoding='utf-8')
-    return config.get('PATHS', 'output_dir', fallback='output')
+def get_output_dir() -> str:
+    """出力ディレクトリの絶対パスを取得"""
+    output_dir = get_app_path() / 'output'
+    return str(output_dir.resolve())  # 絶対パスを確実に取得
 
 def get_csv_encoding():
     """CSVファイルのエンコーディングを取得"""
@@ -138,3 +139,124 @@ if sys.platform == 'darwin':  # Mac OS の場合
     from tkinter import ttk
     style = ttk.Style()
     style.theme_use('aqua')  # Mac スタイルを適用
+
+def get_app_path() -> Path:
+    """アプリケーションの作業ディレクトリのベースパスを取得"""
+    # ユーザーのホームディレクトリ配下に作業ディレクトリを作成
+    work_dir = Path.home() / 'Documents' / '勤怠表自動作成ツール'
+    work_dir.mkdir(parents=True, exist_ok=True)
+    logging.info(f"Application work directory: {work_dir}")
+    return work_dir
+
+def get_logs_dir() -> str:
+    """ログディレクトリのパスを取得"""
+    logs_dir = Path.home() / 'Library' / 'Logs' / '勤怠表自動作成ツール'
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    return str(logs_dir.resolve())
+
+def setup_logging():
+    """ログの設定"""
+    logs_dir = Path(get_logs_dir())
+    log_file = logs_dir / f"app_{datetime.now().strftime('%Y%m%d')}.log"
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file, encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+    logging.info("Logging initialized")
+
+def ensure_config():
+    """設定ファイルの存在を確認し、必要に応じて作成する"""
+    try:
+        app_path = get_app_path()
+        config_path = app_path / 'config.ini'
+        
+        if not config_path.exists():
+            print(f"Creating new config file at: {config_path}")
+            config = configparser.ConfigParser()
+            
+            config['DEFAULT'] = {
+                'employee_name': '小島知将',
+                'template_path': str(app_path / 'templates/勤怠表雛形_2025年版.xlsx')
+            }
+            
+            config['PATHS'] = {
+                'input_dir': str(app_path / 'input'),
+                'output_dir': str(app_path / 'output')
+            }
+            
+            config['CSV'] = {
+                'encoding': 'utf-8',
+                'date_format': '%Y-%m-%d'
+            }
+            
+            with open(config_path, 'w', encoding='utf-8') as configfile:
+                config.write(configfile)
+        
+        return config_path
+    except Exception as e:
+        print(f"Error ensuring config: {e}")
+        raise
+
+def get_config():
+    """設定ファイルを読み込む"""
+    try:
+        config_path = ensure_config()
+        config = configparser.ConfigParser()
+        config.read(config_path, encoding='utf-8')
+        return config
+    except Exception as e:
+        print(f"Error reading config: {e}")
+        raise
+
+def get_input_dir() -> str:
+    """入力ディレクトリのパスを取得"""
+    input_dir = get_app_path() / 'input'
+    input_dir.mkdir(parents=True, exist_ok=True)
+    logging.info(f"Input directory path: {input_dir}")
+    return str(input_dir.resolve())
+
+def get_output_dir() -> str:
+    """出力ディレクトリのパスを取得"""
+    output_dir = get_app_path() / 'output'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    logging.info(f"Output directory path: {output_dir}")
+    return str(output_dir.resolve())
+
+def get_template_path() -> str:
+    """テンプレートファイルのパスを取得"""
+    template_dir = get_app_path() / 'templates'
+    template_dir.mkdir(parents=True, exist_ok=True)
+    template_path = template_dir / '勤怠表雛形_2025年版.xlsx'
+    
+    # テンプレートファイルが存在しない場合、アプリケーションバンドルから取得
+    if not template_path.exists() and getattr(sys, 'frozen', False):
+        bundle_template = Path(sys._MEIPASS) / 'templates' / '勤怠表雛形_2025年版.xlsx'
+        if bundle_template.exists():
+            shutil.copy2(bundle_template, template_path)
+    
+    logging.info(f"Template path: {template_path}")
+    return str(template_path.resolve())
+
+def get_default_employee_name():
+    """デフォルトの従業員名を取得"""
+    config = get_config()
+    return config['DEFAULT']['employee_name']
+
+def update_config(employee_name, template_path):
+    """設定を更新する"""
+    try:
+        config = get_config()
+        config['DEFAULT']['employee_name'] = employee_name
+        config['DEFAULT']['template_path'] = template_path
+        
+        config_path = get_app_path() / 'config.ini'
+        with open(config_path, 'w', encoding='utf-8') as configfile:
+            config.write(configfile)
+    except Exception as e:
+        print(f"Error updating config: {e}")
+        raise

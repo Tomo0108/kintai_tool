@@ -27,7 +27,7 @@ def process_attendance(csv_path, template_path, employee_name):
 
     # 出力ファイル名を作成
     output_filename = f"勤怠表_{year_month}_{employee_name}.xlsx"
-    output_path = os.path.join(get_output_dir(), output_filename)
+    output_path = str(Path(get_output_dir()) / output_filename)
 
     # Excelに書き込み
     write_to_excel(template_path, output_path, df_processed, csv_path)
