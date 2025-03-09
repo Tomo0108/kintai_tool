@@ -4,76 +4,121 @@ import os
 import sys
 import traceback
 from pathlib import Path
-from config import (get_input_dir, get_template_path, 
+from tkinter.font import Font
+from config import (get_input_dir, get_template_path, get_output_dir,
                    get_default_employee_name, update_config)
 from main import process_attendance
+from utils import open_folder, setup_directories
 
 class AttendanceConverterGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("勤怠データ変換ツール")
         
+        # 初期セットアップ
+        try:
+            setup_directories()
+        except Exception as e:
+            messagebox.showwarning(
+                "初期セットアップ",
+                f"フォルダの作成中にエラーが発生しました:\n{str(e)}"
+            )
+        
+        # スタイル設定
+        self.style = ttk.Style()
+        self.style.configure('Main.TFrame', background='#f0f0f0')
+        self.style.configure('Title.TLabel', 
+                           font=('Yu Gothic UI', 20, 'bold'),
+                           background='#f0f0f0',
+                           foreground='#1a73e8')
+        self.style.configure('Custom.TButton',
+                           font=('Yu Gothic UI', 10),
+                           padding=10)
+        self.style.configure('Status.TLabel',
+                           font=('Yu Gothic UI', 10),
+                           background='#f0f0f0')
+        self.style.configure('Field.TLabel',
+                           font=('Yu Gothic UI', 10),
+                           background='#f0f0f0')
+        
         # メインフレーム
-        self.main_frame = ttk.Frame(root, padding=20)
+        self.main_frame = ttk.Frame(root, padding=30, style='Main.TFrame')
         self.main_frame.grid(row=0, column=0, sticky="nsew")
         
         # タイトル
         title_label = ttk.Label(
             self.main_frame, 
             text="勤怠データ変換ツール", 
-            font=("Helvetica", 16, "bold")
+            style='Title.TLabel'
         )
-        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 30))
         
         # CSVファイル選択
-        ttk.Label(self.main_frame, text="CSVファイル:").grid(
-            row=1, column=0, sticky="w", pady=5
+        ttk.Label(self.main_frame, text="CSVファイル:", style='Field.TLabel').grid(
+            row=1, column=0, sticky="w", pady=10
         )
-        self.csv_entry = ttk.Entry(self.main_frame, width=50)
-        self.csv_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.csv_entry = ttk.Entry(self.main_frame, width=50, font=('Yu Gothic UI', 10))
+        self.csv_entry.grid(row=1, column=1, padx=5, pady=10)
         ttk.Button(
             self.main_frame, 
             text="参照", 
-            command=self.select_csv
-        ).grid(row=1, column=2, padx=5, pady=5)
+            command=self.select_csv,
+            style='Custom.TButton'
+        ).grid(row=1, column=2, padx=(10, 0), pady=10)
         
         # テンプレート選択
-        ttk.Label(self.main_frame, text="テンプレート:").grid(
-            row=2, column=0, sticky="w", pady=5
+        ttk.Label(self.main_frame, text="テンプレート:", style='Field.TLabel').grid(
+            row=2, column=0, sticky="w", pady=10
         )
-        self.template_entry = ttk.Entry(self.main_frame, width=50)
-        self.template_entry.grid(row=2, column=1, padx=5, pady=5)
+        self.template_entry = ttk.Entry(self.main_frame, width=50, font=('Yu Gothic UI', 10))
+        self.template_entry.grid(row=2, column=1, padx=5, pady=10)
         self.template_entry.insert(0, get_template_path())
         ttk.Button(
             self.main_frame, 
             text="参照", 
-            command=self.select_template
-        ).grid(row=2, column=2, padx=5, pady=5)
+            command=self.select_template,
+            style='Custom.TButton'
+        ).grid(row=2, column=2, padx=(10, 0), pady=10)
         
         # 従業員名入力
-        ttk.Label(self.main_frame, text="従業員名:").grid(
-            row=3, column=0, sticky="w", pady=5
+        ttk.Label(self.main_frame, text="従業員名:", style='Field.TLabel').grid(
+            row=3, column=0, sticky="w", pady=10
         )
-        self.name_entry = ttk.Entry(self.main_frame, width=50)
-        self.name_entry.grid(row=3, column=1, padx=5, pady=5)
+        self.name_entry = ttk.Entry(self.main_frame, width=50, font=('Yu Gothic UI', 10))
+        self.name_entry.grid(row=3, column=1, padx=5, pady=10)
         self.name_entry.insert(0, get_default_employee_name())
+        
+        # ボタンフレーム
+        button_frame = ttk.Frame(self.main_frame, style='Main.TFrame')
+        button_frame.grid(row=4, column=0, columnspan=3, pady=(30,20))
         
         # 変換ボタン
         convert_button = ttk.Button(
-            self.main_frame,
+            button_frame,
             text="変換実行",
             command=self.convert,
-            width=20
+            style='Custom.TButton',
+            width=15
         )
-        convert_button.grid(row=4, column=0, columnspan=3, pady=20)
+        convert_button.pack(side=tk.LEFT, padx=10)
+
+        # フォルダを開くボタン
+        open_folder_button = ttk.Button(
+            button_frame,
+            text="出力フォルダを開く",
+            command=self.open_output_folder,
+            style='Custom.TButton',
+            width=15
+        )
+        open_folder_button.pack(side=tk.LEFT, padx=10)
         
         # ステータス表示
         self.status_label = ttk.Label(
             self.main_frame, 
             text="", 
-            font=("Helvetica", 10)
+            style='Status.TLabel'
         )
-        self.status_label.grid(row=5, column=0, columnspan=3)
+        self.status_label.grid(row=5, column=0, columnspan=3, pady=(10, 0))
         
         # グリッド設定
         root.columnconfigure(0, weight=1)
@@ -114,7 +159,7 @@ class AttendanceConverterGUI:
             return
 
         try:
-            self.status_label.config(text="変換中...", foreground="blue")
+            self.status_label.config(text="変換中...", foreground="#1a73e8")
             self.root.update()
             
             process_attendance(
@@ -125,8 +170,10 @@ class AttendanceConverterGUI:
             
             self.status_label.config(
                 text="✅ 変換が完了しました！", 
-                foreground="green"
+                foreground="#34a853"
             )
+            # 変換完了時にoutputフォルダを開く
+            open_folder(get_output_dir())
             messagebox.showinfo("完了", "変換が完了しました！")
             
             # 設定を保存
@@ -139,9 +186,22 @@ class AttendanceConverterGUI:
             
             self.status_label.config(
                 text="❌ エラーが発生しました", 
-                foreground="red"
+                foreground="#ea4335"
             )
             messagebox.showerror("エラー", error_msg)
+
+    def open_output_folder(self):
+        """出力フォルダを開く"""
+        if open_folder(get_output_dir()):
+            self.status_label.config(
+                text="✅ 出力フォルダを開きました", 
+                foreground="#34a853"
+            )
+        else:
+            self.status_label.config(
+                text="❌ フォルダを開けませんでした", 
+                foreground="#ea4335"
+            )
 
 def main():
     try:

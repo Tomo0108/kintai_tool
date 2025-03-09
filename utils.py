@@ -1,8 +1,68 @@
 import os
+import sys
 import pandas as pd
 import openpyxl
+import subprocess
+import platform
+import shutil
+from pathlib import Path
 from openpyxl.utils import get_column_letter
-from config import get_csv_encoding, get_date_format
+from config import get_csv_encoding, get_date_format, get_input_dir, get_output_dir
+
+def setup_directories():
+    """
+    必要なフォルダとファイルを作成する
+    """
+    # 実行ファイルのディレクトリを取得
+    if getattr(sys, 'frozen', False):
+        # PyInstallerで実行している場合
+        current_dir = Path(os.path.dirname(sys.executable))
+    else:
+        # 通常のPythonスクリプトとして実行している場合
+        current_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+    
+    # 必要なフォルダを作成
+    folders = ['input', 'output', 'templates']
+    for folder in folders:
+        folder_path = current_dir / folder
+        if not folder_path.exists():
+            folder_path.mkdir(parents=True)
+
+    # テンプレートファイルをコピー
+    template_path = current_dir / 'templates' / '勤怠表雛形_2025年版.xlsx'
+    if not template_path.exists():
+        if getattr(sys, '_MEIPASS', None):
+            # PyInstallerで実行している場合
+            bundled_template = Path(sys._MEIPASS) / 'templates' / '勤怠表雛形_2025年版.xlsx'
+            if bundled_template.exists():
+                os.makedirs(template_path.parent, exist_ok=True)
+                shutil.copy2(str(bundled_template), str(template_path))
+            else:
+                # テンプレートが見つからない場合は空のテンプレートを作成
+                wb = openpyxl.Workbook()
+                sheet = wb.active
+                sheet.title = "勤務表"
+                wb.save(template_path)
+
+
+def open_folder(path):
+    """
+    指定されたフォルダをOSのデフォルトファイルエクスプローラで開く
+    """
+    if not os.path.exists(path):
+        os.makedirs(path, exist_ok=True)
+        
+    try:
+        if platform.system() == "Windows":
+            os.startfile(path)
+        elif platform.system() == "Darwin":  # macOS
+            subprocess.run(['open', path], check=False)
+        else:  # Linux
+            subprocess.run(['xdg-open', path], check=False)
+        return True
+    except Exception:
+        return False
+
 
 def read_csv(csv_path):
     """
